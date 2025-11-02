@@ -528,6 +528,52 @@ class GoogleDomains(StandardService):
         return DNSService.update_ipv6(self, address)
 
 
+class Cloudflare(DNSService):
+    """
+    Updates a domain hosted at `Cloudflare`_.
+
+    :param bearer_token: Required authentication token generated from Cloudflare
+    :param zone_id: Required unique Cloudflare zone id to update.
+                    Get it separately by referring to
+                    https://developers.cloudflare.com/api/resources/zones/methods/list/
+    :param zone_id: Required unique Cloudflare dns record id to update
+                    Get it separately by referring to
+                    https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/list/
+    """
+
+    URL_PREFIX = "https://api.cloudflare.com/client/v4"
+    DNS_RECORDS_URL = URL_PREFIX + "/zones/{}/dns_records/{}"
+
+
+    def __init__(self, bearer_token, zone_id, dns_record_id):
+        self.bearer_token = bearer_token
+        self.auth_header = self._get_auth_header(bearer_token)
+        self.zone_id = zone_id
+        self.dns_record_id = dns_record_id
+
+
+    def _get_auth_header(self, bearer_token):
+        return {"Authorization": f"Bearer {bearer_token}"}
+
+
+    def _update_ip(self, address_str, address_type="A"):
+        url = self.DNS_RECORDS_URL.format(self.zone_id, self.dns_record_id)
+        data = {
+            "type": address_type,
+            "content": address_str
+        }
+        session.headers.update(self.auth_header)
+        session.patch(url, json=data)
+
+
+    def update_ipv4(self, address):
+        self._update_ip(str(address), address_type="A")
+
+
+    def update_ipv6(self, address):
+        self._update_ip(str(address), address_type="AAAA")
+
+
 def _load_config(arg_file):
     config_files = [arg_file, "~/.config/dnsupdate.conf", "/etc/dnsupdate.conf"]
     for config_file in config_files:
